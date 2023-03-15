@@ -3,12 +3,13 @@ from scrapy.http import HtmlResponse
 from scrapy.linkextractors import LinkExtractor
 from scrapy.spiders import CrawlSpider, Rule
 import json
-
+import csv
 
 class DiscuzSpiderSpider(CrawlSpider):
     name = 'discuz_spider'
     allowed_domains = ['www.saraba1st.com']
     start_urls = ['https://www.saraba1st.com/2b/forum-6-1.html']
+    page_count = 1  # Add this line
 
     rules = (
         Rule(LinkExtractor(allow=r'forum-6-\d+.html'), callback='parse_item', follow=True),
@@ -35,11 +36,25 @@ class DiscuzSpiderSpider(CrawlSpider):
                 'reply_count': row.xpath('.//td[contains(@class, "num")]/a/text()').get(),
                 'view_count': row.xpath('.//td[contains(@class, "num")]/em/text()').get()
             }
+            self.page_count += 1
+
+            # Save the items to a CSV file every 10 pages
+            if self.page_count % 10 == 0:
+                with open('forum-6.csv', 'w', newline='', encoding='utf-8') as f:
+                    writer = csv.DictWriter(f, fieldnames=item.keys())
+                    writer.writeheader()
+                    for item in self.all_items.values():
+                        writer.writerow(item)
 
             # Deduplicate items using the id field and store in a class-level dictionary.
             self.all_items[item['id']] = item
 
-        # Stop the spider when the pagination ends, and save the accumulated items to the JSON file.
-        if not response.xpath('//div[contains(@class, "pg")]/a[contains(@class, "nxt")]'):
-            with open('forum-6.json', 'w', encoding='utf-8') as f:
-                json.dump(list(self.all_items.values()), f, ensure_ascii=False, indent=2)
+        self.page_count += 1
+
+        # Save the items to a CSV file every 10 pages
+        if self.page_count % 10 == 0:
+            with open('forum-6.csv', 'w', newline='', encoding='utf-8') as f:
+                writer = csv.DictWriter(f, fieldnames=item.keys())
+                writer.writeheader()
+                for item in self.all_items.values():
+                    writer.writerow(item)
